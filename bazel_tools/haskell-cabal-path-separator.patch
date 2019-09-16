@@ -1,0 +1,47 @@
+diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
+index bf9e52d6..8771cd8e 100644
+--- a/haskell/private/cabal_wrapper.sh.tpl
++++ b/haskell/private/cabal_wrapper.sh.tpl
+@@ -29,14 +29,19 @@ function realpath()
+ 
+ function canonicalize_path()
+ {
+-    new_path=""
+-    while IFS=: read -r -d: entry
+-    do
++    local -a entries
++    if [[ %{is_windows} = True ]]; then
++        IFS=":;" read -ra entries <<< "${1:-}"
++    else
++        IFS=":" read -ra entries <<< "${1:-}"
++    fi
++    local new_path=""
++    for entry in ${entries[@]}; do
+         if [[ -n "$entry" ]]
+         then
+             new_path="$new_path${new_path:+:}$(realpath "$entry")"
+         fi
+-    done <<< "${1:-}:"
++    done
+     echo $new_path
+ }
+ 
+diff --git a/haskell/private/context.bzl b/haskell/private/context.bzl
+index 64ca4a4e..4227ebf7 100644
+--- a/haskell/private/context.bzl
++++ b/haskell/private/context.bzl
+@@ -67,11 +67,11 @@ def render_env(env):
+     Example:
+ 
+       >>> render_env({"PATH": "foo:bar", "LANG": "lang"})
+-      export PATH=foo:bar
+-      export LANG=lang
++      export PATH="foo:bar"
++      export LANG="lang"
+ 
+     """
+     return "\n".join([
+-        "export {}={}".format(k, v)
++        'export {}="{}"'.format(k, v)
+         for k, v in env.items()
+     ])
