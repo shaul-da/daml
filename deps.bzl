@@ -53,6 +53,8 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-cc-wrapper.patch",
                 # Upstream to rules_haskell and remove this patch.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-path-separator.patch",
+                # Fix issue in rules_haskell and remove this patch.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-windows-path-realgcc.patch",
                 # The fake libs issue should be fixed in upstream rules_haskell
                 # or GHC. Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",

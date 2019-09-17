@@ -1,0 +1,33 @@
+Windows builds fail with the following error:
+```
+realgcc.exe: error: CreateProcess: No such file or directory
+`gcc.exe' failed in phase `Linker'. (Exit code: 1)
+```
+`realgcc.exe` is contained in the GHC distribution's `mingw/bin` directory.
+The `PATH` mangling of the Cabal wrapper makes the binary unavailable to
+`gcc.exe`. This patch works around the issue by adding `mingw/bin` to `PATH`.
+The path is obtained from the `ar.exe` executable, which is contained in the
+same directory. Note, using `cc.tools.cc` would not work, as that would point
+to the `cc_wrapper`. Using the `cc_wrapper` in the Cabal wrapper on Windows
+should solve this issue.
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+index 4e3b133e..d8691a20 100644
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -86,14 +86,14 @@ def _cabal_tool_flag(tool):
+         return "--with-{}={}".format(tool.basename, tool.path)
+ 
+ def _make_path(hs, binaries):
+-    return ":".join([binary.dirname for binary in binaries.to_list()] + ["$PATH"])
++    return ":".join([binary.dirname for binary in binaries] + ["$PATH"])
+ 
+ def _prepare_cabal_inputs(hs, cc, dep_info, cc_info, component, package_id, tool_inputs, tool_input_manifests, cabal, setup, srcs, flags, cabal_wrapper_tpl, package_database):
+     """Compute Cabal wrapper, arguments, inputs."""
+     with_profiling = is_profiling_enabled(hs)
+ 
+     (ghci_extra_libs, env) = get_ghci_extra_libs(hs, cc_info)
+-    env["PATH"] = _make_path(hs, tool_inputs)
++    env["PATH"] = ":".join([paths.dirname(cc.tools.ar), _make_path(hs, tool_inputs.to_list())])
+     if hs.toolchain.is_darwin:
+         env["SDKROOT"] = "macosx"  # See haskell/private/actions/link.bzl
+ 
