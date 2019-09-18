@@ -1,8 +1,62 @@
 diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
-index 8771cd8e..37dcf1d3 100644
+index 8771cd8e..5d82f4cb 100644
 --- a/haskell/private/cabal_wrapper.sh.tpl
 +++ b/haskell/private/cabal_wrapper.sh.tpl
-@@ -69,9 +69,11 @@ function relative_to() {
+@@ -24,7 +24,39 @@ shopt -s nullglob
+ # Poor man's realpath, because realpath is not available on macOS.
+ function realpath()
+ {
+-    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
++    if [[ %{is_windows} ]]; then
++        [[ $1 = /* || $1 = [a-zA-Z]:[/\\]* ]] && echo "$1" || echo "$PWD/${1#./}"
++    else
++        [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
++    fi
++}
++
++function windows_canonicalize()
++{
++    # Some processes (e.g. gcc.exe) don't handle the `/c/some/path` format
++    # well. Convert to `c:/some/path` instead. Windows paths are case
++    # insensitive. Convert to lower-case (`${x,,}`) for consistency. Use
++    # all forward slashes for consistency.
++    local root
++    local path
++    if [[ $1 =~ ^/([a-zA-Z])[/\\](.*)$ ]]; then
++        root="${BASH_REMATCH[1],,}:"
++        path="${BASH_REMATCH[2],,}"
++    elif [[ $1 =~ ^([a-zA-Z]):[/\\](.*)$ ]]; then
++        root="${BASH_REMATCH[1],,}:"
++        path="${BASH_REMATCH[2],,}"
++    else
++        root=
++        path="$1"
++    fi
++    local -a path_components components
++    IFS="/\\" read -ra path_components <<< "${path}"
++    # Remove empty components
++    local IFS=
++    components=($root ${path_components[@]})
++    # Join components by path separator
++    local IFS=/
++    echo "${components[*]}"
+ }
+ 
+ function canonicalize_path()
+@@ -39,7 +71,11 @@ function canonicalize_path()
+     for entry in ${entries[@]}; do
+         if [[ -n "$entry" ]]
+         then
+-            new_path="$new_path${new_path:+:}$(realpath "$entry")"
++            if [[ %{is_windows} = True ]]; then
++                new_path="$new_path${new_path:+:}$(windows_canonicalize "$(realpath "$entry")")"
++            else
++                new_path="$new_path${new_path:+:}$(realpath "$entry")"
++            fi
+         fi
+     done
+     echo $new_path
+@@ -69,9 +105,11 @@ function relative_to() {
  }
  
  # Remove any relative entries, because we'll be changing CWD shortly.
