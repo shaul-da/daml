@@ -1,8 +1,8 @@
 diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
-index 8771cd8e..1fc9f55b 100644
+index 8771cd8e..37dcf1d3 100644
 --- a/haskell/private/cabal_wrapper.sh.tpl
 +++ b/haskell/private/cabal_wrapper.sh.tpl
-@@ -69,9 +69,9 @@ function relative_to() {
+@@ -69,9 +69,11 @@ function relative_to() {
  }
  
  # Remove any relative entries, because we'll be changing CWD shortly.
@@ -11,7 +11,9 @@ index 8771cd8e..1fc9f55b 100644
 -PATH=$(canonicalize_path $PATH)
 +export LD_LIBRARY_PATH=$(canonicalize_path $LD_LIBRARY_PATH)
 +export LIBRARY_PATH=$(canonicalize_path $LIBRARY_PATH)
-+export PATH=$(canonicalize_path $PATH)
++echo PATH_BEFORE "$PATH"
++export PATH=$(canonicalize_path "$PATH:$(env - $SHELL -c 'echo $PATH')")
++echo PATH_AFTER "$PATH"
  
  component=$1
  name=$2
