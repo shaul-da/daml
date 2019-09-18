@@ -1,131 +1,14 @@
-diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
-index 8771cd8e..1de814f5 100644
---- a/haskell/private/cabal_wrapper.sh.tpl
-+++ b/haskell/private/cabal_wrapper.sh.tpl
-@@ -24,7 +24,42 @@ shopt -s nullglob
- # Poor man's realpath, because realpath is not available on macOS.
- function realpath()
- {
--    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
-+    if [[ %{is_windows} ]]; then
-+        [[ $1 = /* || $1 = [a-zA-Z]:[/\\]* ]] && echo "$1" || echo "$PWD/${1#./}"
-+    else
-+        [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
-+    fi
-+}
-+
-+function windows_canonicalize()
-+{
-+    # Some processes (e.g. gcc.exe) don't handle the `/c/some/path` format
-+    # well. Convert to `c:/some/path` instead. Windows paths are case
-+    # insensitive. Convert to lower-case (`${x,,}`) for consistency. Use
-+    # all forward slashes for consistency.
-+    local root
-+    local path
-+    if [[ $1 =~ ^/([a-zA-Z])[/\\](.*)$ ]]; then
-+        root="${BASH_REMATCH[1],,}:/"
-+        path="${BASH_REMATCH[2],,}"
-+    elif [[ $1 =~ ^([a-zA-Z]):[/\\](.*)$ ]]; then
-+        root="${BASH_REMATCH[1],,}:/"
-+        path="${BASH_REMATCH[2],,}"
-+    elif [[ $1 =~ ^/(.*)$ ]]; then
-+        root=/
-+        path="${BASH_REMATCH[1],,}"
-+    else
-+        root=
-+        path="${1,,}"
-+    fi
-+    local -a path_components components
-+    IFS="/\\" read -ra path_components <<< "${path}"
-+    # Remove empty components
-+    local IFS=
-+    components=(${path_components[@]})
-+    # Join components by path separator
-+    local IFS=/
-+    echo "$root${components[*]}"
- }
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+index d8691a20..475fca37 100644
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -93,6 +93,9 @@ def _prepare_cabal_inputs(hs, cc, dep_info, cc_info, component, package_id, tool
+     with_profiling = is_profiling_enabled(hs)
  
- function canonicalize_path()
-@@ -39,7 +74,11 @@ function canonicalize_path()
-     for entry in ${entries[@]}; do
-         if [[ -n "$entry" ]]
-         then
--            new_path="$new_path${new_path:+:}$(realpath "$entry")"
-+            if [[ %{is_windows} = True ]]; then
-+                new_path="$new_path${new_path:+::}$(windows_canonicalize "$(realpath "$entry")")"
-+            else
-+                new_path="$new_path${new_path:+:}$(realpath "$entry")"
-+            fi
-         fi
-     done
-     echo $new_path
-@@ -69,9 +108,11 @@ function relative_to() {
- }
- 
- # Remove any relative entries, because we'll be changing CWD shortly.
--LD_LIBRARY_PATH=$(canonicalize_path $LD_LIBRARY_PATH)
--LIBRARY_PATH=$(canonicalize_path $LIBRARY_PATH)
--PATH=$(canonicalize_path $PATH)
-+export LD_LIBRARY_PATH=$(canonicalize_path $LD_LIBRARY_PATH)
-+export LIBRARY_PATH=$(canonicalize_path $LIBRARY_PATH)
-+echo PATH_BEFORE "$PATH"
-+NEW_PATH=$(canonicalize_path "$PATH:$(env - $SHELL -c 'echo $PATH')")
-+echo PATH_AFTER "$NEW_PATH"
- 
- component=$1
- name=$2
-@@ -103,7 +144,9 @@ cleanup () {
- }
- trap cleanup EXIT
- 
--%{ghc_pkg} recache --package-db=$package_database
-+set -x
-+$execroot/%{ghc_pkg} recache --package-db=$package_database
-+set +x
- 
- WITH_GCC=
- if [[ %{is_darwin} == True ]]; then
-@@ -123,7 +166,7 @@ cd $srcdir
- export HOME=/var/empty
- # Note, setting --datasubdir is required to work around
- #   https://github.com/haskell/cabal/issues/6235
--$execroot/%{runghc} $setup configure \
-+PATH=NEW_PATH $execroot/%{runghc} $setup configure \
-     $component \
-     --verbose=0 \
-     --user \
-@@ -147,8 +190,8 @@ $execroot/%{runghc} $setup configure \
-     "${extra_args[@]}" \
-     "${@/=/=$execroot/}" \
-     --package-db=$package_database # This arg must come last.
--$execroot/%{runghc} $setup build --verbose=0 --builddir=$distdir
--$execroot/%{runghc} $setup install --verbose=0 --builddir=$distdir
-+PATH=NEW_PATH $execroot/%{runghc} $setup build --verbose=0 --builddir=$distdir
-+PATH=NEW_PATH $execroot/%{runghc} $setup install --verbose=0 --builddir=$distdir
- cd - >/dev/null
- 
- # XXX Cabal has a bizarre layout that we can't control directly. It
-@@ -182,5 +225,5 @@ then
-         | replace_execroot \
-         > $package_database/$name.conf.tmp
-     mv  $package_database/$name.conf.tmp $package_database/$name.conf
--    %{ghc_pkg} recache --package-db=$package_database
-+    $execroot/%{ghc_pkg} recache --package-db=$package_database
- fi
-diff --git a/haskell/private/ghc_wrapper.sh b/haskell/private/ghc_wrapper.sh
-index e7e7805c..12bb5769 100755
---- a/haskell/private/ghc_wrapper.sh
-+++ b/haskell/private/ghc_wrapper.sh
-@@ -10,9 +10,10 @@ while IFS= read -r line; do compile_flags+=("$line"); done < $1
- if [ "$2" == "--persistent_worker" ]; then
-     # This runs our proof-of-concept implementation of a persistent worker
-     # wrapping GHC. Not ready for production usage.
-+    set -x
-     exec ${compile_flags[@]} --persistent_worker
- else
-     while IFS= read -r line; do extra_args+=("$line"); done < "$2"
--    "${compile_flags[@]}" "${extra_args[@]}" 2>&1 \
--      | while IFS= read -r line; do [[ $line =~ ^Loaded ]] || echo "$line"; done >&2
-+    set -x
-+    "${compile_flags[@]}" "${extra_args[@]}"
- fi
+     (ghci_extra_libs, env) = get_ghci_extra_libs(hs, cc_info)
++    env = {
++        k: ":".join(v.split(";"))
++    }
+     env["PATH"] = ":".join([paths.dirname(cc.tools.ar), _make_path(hs, tool_inputs.to_list())])
+     if hs.toolchain.is_darwin:
+         env["SDKROOT"] = "macosx"  # See haskell/private/actions/link.bzl
