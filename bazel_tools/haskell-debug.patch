@@ -1,5 +1,5 @@
 diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
-index 8771cd8e..2e33d93a 100644
+index 8771cd8e..7401469a 100644
 --- a/haskell/private/cabal_wrapper.sh.tpl
 +++ b/haskell/private/cabal_wrapper.sh.tpl
 @@ -24,7 +24,42 @@ shopt -s nullglob
@@ -52,7 +52,7 @@ index 8771cd8e..2e33d93a 100644
          then
 -            new_path="$new_path${new_path:+:}$(realpath "$entry")"
 +            if [[ %{is_windows} = True ]]; then
-+                new_path="$new_path${new_path:+;}$(windows_canonicalize "$(realpath "$entry")")"
++                new_path="$new_path${new_path:+::}$(windows_canonicalize "$(realpath "$entry")")"
 +            else
 +                new_path="$new_path${new_path:+:}$(realpath "$entry")"
 +            fi
