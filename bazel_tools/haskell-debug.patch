@@ -1,5 +1,5 @@
 diff --git a/haskell/private/cabal_wrapper.sh.tpl b/haskell/private/cabal_wrapper.sh.tpl
-index 8771cd8e..8717f153 100644
+index 8771cd8e..1de814f5 100644
 --- a/haskell/private/cabal_wrapper.sh.tpl
 +++ b/haskell/private/cabal_wrapper.sh.tpl
 @@ -24,7 +24,42 @@ shopt -s nullglob
@@ -74,16 +74,18 @@ index 8771cd8e..8717f153 100644
  
  component=$1
  name=$2
-@@ -103,7 +144,7 @@ cleanup () {
+@@ -103,7 +144,9 @@ cleanup () {
  }
  trap cleanup EXIT
  
 -%{ghc_pkg} recache --package-db=$package_database
++set -x
 +$execroot/%{ghc_pkg} recache --package-db=$package_database
++set +x
  
  WITH_GCC=
  if [[ %{is_darwin} == True ]]; then
-@@ -123,7 +164,7 @@ cd $srcdir
+@@ -123,7 +166,7 @@ cd $srcdir
  export HOME=/var/empty
  # Note, setting --datasubdir is required to work around
  #   https://github.com/haskell/cabal/issues/6235
@@ -92,7 +94,7 @@ index 8771cd8e..8717f153 100644
      $component \
      --verbose=0 \
      --user \
-@@ -147,8 +188,8 @@ $execroot/%{runghc} $setup configure \
+@@ -147,8 +190,8 @@ $execroot/%{runghc} $setup configure \
      "${extra_args[@]}" \
      "${@/=/=$execroot/}" \
      --package-db=$package_database # This arg must come last.
@@ -103,7 +105,7 @@ index 8771cd8e..8717f153 100644
  cd - >/dev/null
  
  # XXX Cabal has a bizarre layout that we can't control directly. It
-@@ -182,5 +223,5 @@ then
+@@ -182,5 +225,5 @@ then
          | replace_execroot \
          > $package_database/$name.conf.tmp
      mv  $package_database/$name.conf.tmp $package_database/$name.conf
