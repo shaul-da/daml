@@ -9,6 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
++ [JSON API - Experimental] Support for automatic package reload
 + [JSON API - Experimental] Returning archived and active/created contracts from ``/command/exercise``
 + [SDK] Bundle the ``daml-trigger`` package. Note, this package is experimental and will change.
 + [SDK] Releases can now bundle additional libraries with the SDK in ``$DAML_SDK/daml-libs``. You
