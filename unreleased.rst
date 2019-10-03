@@ -10,6 +10,7 @@ HEAD — ongoing
 --------------
 
 + [JSON API - Experimental] Support for automatic package reload
+  See `issue #2906 <https://github.com/digital-asset/daml/issues/2906>`_.
 + [JSON API - Experimental] Returning archived and active/created contracts from ``/command/exercise``
 + [SDK] Bundle the ``daml-trigger`` package. Note, this package is experimental and will change.
 + [SDK] Releases can now bundle additional libraries with the SDK in ``$DAML_SDK/daml-libs``. You
