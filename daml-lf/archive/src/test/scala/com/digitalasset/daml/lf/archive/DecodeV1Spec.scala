@@ -234,7 +234,7 @@ class DecodeV1Spec
     def toNumericProto(id: Int): DamlLf1.Expr =
       DamlLf1.Expr
         .newBuilder()
-        .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedId(id))
+        .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedString(id))
         .build()
 
     val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, LanguageMinorVersion, Ast.Expr](
@@ -521,8 +521,8 @@ class DecodeV1Spec
         .collectFirst {
           case dv if dv.getNameWithType.getNameList.asScala.lastOption contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
-            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.INTERNED_ID
-            pr.getInternedId
+            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STRING
+            pr.getPackageIdInternedString
         }
         .value
       dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
