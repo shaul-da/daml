@@ -2893,7 +2893,7 @@ intern package IDs
 
 In ``PackageRef``, the alternative ``interned_id`` may be used in place
 of ``package_id``, in which case the package ID will be that at the
-given index into ``Package.interned_package_ids``.
+given index into ``Package.interned_ids``.
 See `Package reference`_.
 
 Nat kind and Nat types
@@ -2981,6 +2981,52 @@ On the other hand, starting from DAML-LF 1.dev:
   containing ``DECIMAL`` in their name are forbidden). The
   deserialization process will reject any DAML-LF 1.dev (or latter)
   that does not comply those restrictions.
+
+Interned Strings
+................
+
+[*Available in versions >= 1.dev*]
+
+Fields of type ``string`` or ``repeated string`` available in version
+1.6, except the field ``Package.interned_strings`` are forbidden.
+The deserialization process will reject any DAML-LF 1.dev (or latter)
+that try to use such field.
+Alternative fields of type ``int32`` or ``repeated int32`` with
+suffix ``interned_id`` must be used instead, in which case the string
+will be that at the given index into ``Package.interned_strings``.
+
+
+Interned DottedNames
+....................
+
+[*Available in versions >= 1.dev*]
+
+
+[*Available in versions >= 1.dev*]
+
+Fields of type ``DottedName`` available in version 1.6 are forbidden.
+The deserialization process will reject any DAML-LF 1.dev (or latter)
+that does not comply those restrictions.
+Alternative fields of type ``int32`` with suffix ``interned_id``
+must be used instead, in which case the DottedName
+will be that at the given index into the new field
+``Package.interned_dottedname``.
+
+
+
+Any template
+............
+
+[*Available in versions >= 1.dev*]
+
+This is an experimental feature used in DAML Triggers.
+More details will be provided in a near future.
+
+The curious reader can temporaly refer to the following PRs for more details:
+ * https://github.com/digital-asset/daml/issues/2876
+ * https://github.com/digital-asset/daml/issues/3072
+
+
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)

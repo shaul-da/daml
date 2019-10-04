@@ -118,12 +118,18 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
+          val nameList = nameWithType.getNameList.asScala
           val defName =
+            if (versionIsOlderThan(LV.Features.internedStrings)) {
+              assertZero(nameWithType.getNameInternedDottedName, "NameWithType.name_interned_if")
+              decodeSegments(ImmArray(nameList))
+            } else {
+               assertEmpty(nameList, "NameWithType")
             if (nameWithType.getNameCount == 0) {
               assertSince(LV.Features.internedDottedNames, "interned dotted names table")
               getInternedDottedName(nameWithType.getNameInternedId)
             } else {
-              decodeSegments(ImmArray(nameWithType.getNameList.asScala))
+
             }
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
           val d = decodeDefValue(defn)
@@ -1089,6 +1095,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
   private def assertEmpty(s: Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
+
+  private def assertZero(i: Int, description: => String): Unit =
+    if (i != 0) throw ParseError(s"Unexpected non-zero $description")
 }
 
 private[lf] object DecodeV1 {
