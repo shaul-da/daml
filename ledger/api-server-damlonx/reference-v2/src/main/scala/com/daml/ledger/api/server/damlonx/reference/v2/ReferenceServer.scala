@@ -16,6 +16,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -42,6 +43,7 @@ object ReferenceServer extends App {
         logger.error(s"Supervision caught exception: $e")
         Supervision.Stop
       })
+  implicit val ec: ExecutionContext = system.dispatcher
 
   val ledger = new InMemoryKVParticipantState(participantId)
 
@@ -56,13 +58,18 @@ object ReferenceServer extends App {
   }
 
   val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)
-  val indexerServer = StandaloneIndexerServer(readService, config, participantLoggerFactory)
-  val indexServer =
-    StandaloneIndexServer(config, readService, writeService, participantLoggerFactory).start()
+  val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {
+    indexerServer <- StandaloneIndexerServer(readService, config, participantLoggerFactory)
+    indexServer <- StandaloneIndexServer(
+      config,
+      readService,
+      writeService,
+      participantLoggerFactory).start()
+  } yield (indexerServer, indexServer)
 
   val extraParticipants =
     for {
-      (participantId, port, jdbcUrl) <- config.extraPartipants
+      (participantId, port, jdbcUrl) <- config.extraParticipants
     } yield {
       val participantConfig = config.copy(
         port = port,
@@ -71,26 +78,36 @@ object ReferenceServer extends App {
       )
       val participantLoggerFactory =
         NamedLoggerFactory.forParticipant(participantConfig.participantId)
-      val extraIndexer =
-        StandaloneIndexerServer(readService, participantConfig, participantLoggerFactory)
-      val extraLedgerApiServer = StandaloneIndexServer(
-        participantConfig,
-        readService,
-        writeService,
-        participantLoggerFactory
-      )
-      (extraIndexer, extraLedgerApiServer.start())
+      for {
+        extraIndexer <- StandaloneIndexerServer(
+          readService,
+          participantConfig,
+          participantLoggerFactory)
+        extraLedgerApiServer <- StandaloneIndexServer(
+          participantConfig,
+          readService,
+          writeService,
+          participantLoggerFactory
+        ).start()
+      } yield (extraIndexer, extraLedgerApiServer)
     }
 
   val closed = new AtomicBoolean(false)
 
   def closeServer(): Unit = {
     if (closed.compareAndSet(false, true)) {
-      indexServer.close()
-      indexerServer.close()
-      for ((extraIndexer, extraLedgerApi) <- extraParticipants) {
-        extraIndexer.close()
-        extraLedgerApi.close()
+      participantF.foreach {
+        case (indexer, indexServer) =>
+          indexer.close()
+          indexServer.close()
+      }
+
+      for (extraParticipantF <- extraParticipants) {
+        extraParticipantF.foreach {
+          case (indexer, indexServer) =>
+            indexer.close()
+            indexServer.close()
+        }
       }
       ledger.close()
       materializer.shutdown()

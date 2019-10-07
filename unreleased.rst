@@ -8,3 +8,4 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+[Ledger] The ledger api index server starts only after the indexer has finished initializing the database.
